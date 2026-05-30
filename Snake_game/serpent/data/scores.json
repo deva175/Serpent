@@ -1,0 +1,105 @@
+{
+  "scores": [
+    {
+      "id": 1779859778847,
+      "player": "DEVANSH",
+      "score": 170,
+      "length": 11,
+      "level": 2,
+      "reason": "Bomb hit 💣",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T05:29:38.847Z"
+    },
+    {
+      "id": 1779859872217,
+      "player": "DHARAM",
+      "score": 52,
+      "length": 7,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T05:31:12.217Z"
+    },
+    {
+      "id": 1779864891379,
+      "player": "JHANVI",
+      "score": 109,
+      "length": 10,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T06:54:51.379Z"
+    },
+    {
+      "id": 1779864942438,
+      "player": "JHANVI",
+      "score": 73,
+      "length": 8,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T06:55:42.438Z"
+    },
+    {
+      "id": 1779868169812,
+      "player": "DHARAM",
+      "score": 83,
+      "length": 9,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T07:49:29.812Z"
+    },
+    {
+      "id": 1779868377095,
+      "player": "DHARAM",
+      "score": 590,
+      "length": 36,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T07:52:57.095Z"
+    },
+    {
+      "id": 1779872801431,
+      "player": "AKANSHA",
+      "score": 22,
+      "length": 5,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T09:06:41.431Z"
+    },
+    {
+      "id": 1779872851973,
+      "player": "AKANSHA",
+      "score": 20,
+      "length": 5,
+      "level": 1,
+      "reason": "Bomb hit 💣",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T09:07:31.973Z"
+    },
+    {
+      "id": 1779872885890,
+      "player": "DEVANSH",
+      "score": 53,
+      "length": 7,
+      "level": 1,
+      "reason": "Bomb hit 💣",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T09:08:05.890Z"
+    },
+    {
+      "id": 1779882177928,
+      "player": "PLAYER",
+      "score": 30,
+      "length": 4,
+      "level": 1,
+      "reason": "Wall collision 🧱",
+      "speed": "SLOW",
+      "playedAt": "2026-05-27T11:42:57.928Z"
+    }
+  ],
+  "lastUpdated": "2026-05-27T11:42:57.929Z"
+}

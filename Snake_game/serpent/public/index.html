@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Snake Game</title>
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial;
+
+        /* BACKGROUND IMAGE + DARK OVERLAY */
+        background:
+          linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+          url("images/bg.png") no-repeat center center/cover;
+          
+      }
+
+      /* this is  NAVBAR */
+      .navbar {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        padding: 20px;
+      }
+
+      .navbar a {
+        text-decoration: none;
+        color: #00ffcc;
+        padding: 10px 25px;
+        border: 1px solid #00ffcc;
+        transition: 0.3s;
+        letter-spacing: 1px;
+      }
+
+      /* NAVBAR GLOW effect */
+      .navbar a:hover {
+        box-shadow:
+          0 0 10px #00ffcc,
+          0 0 20px #00ffcc,
+          0 0 40px #00ffcc;
+      }
+
+      /* 🟢 CENTER */
+      .center {
+        height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      /* 🟢 START BUTTON */
+      .start-btn {
+        padding: 15px 45px;
+        font-size: 24px;
+        color: #00ffcc;
+        border: 2px solid #00ffcc;
+        background: transparent;
+        cursor: pointer;
+        transition: 0.3s;
+        letter-spacing: 2px;
+
+        /* AUTO GLOW */
+        animation: glow 1.5s infinite alternate;
+      }
+
+      /* HOVER EFFECT */
+      .start-btn:hover {
+        transform: scale(1.08);
+        box-shadow:
+          0 0 15px #00ffcc,
+          0 0 30px #00ffcc,
+          0 0 60px #00ffcc,
+          0 0 100px #00ffcc;
+      }
+
+      /* GLOW ANIMATION */
+      @keyframes glow {
+        from {
+          box-shadow: 0 0 10px #00ffcc;
+        }
+        to {
+          box-shadow: 0 0 40px #00ffcc;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- 🟢 NAVBAR -->
+    <div class="navbar">
+      <a href="index.html">Home</a>
+      <a href="game.html">Play</a>
+      <a href="about.html">About</a>
+    </div>
+
+    <!-- 🟢 CENTER BUTTON -->
+    <div class="center">
+      <button class="start-btn" onclick="location.href = 'game.html'">
+        START GAME
+      </button>
+    </div>
+  </body>
+</html>

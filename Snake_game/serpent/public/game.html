@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SERPENT — DAA Snake</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #020c08;
+    --grid: #041a0e;
+    --green: #00ff6a;
+    --dim-green: #006628;
+    --poison: #c800ff;
+    --poison-glow: #7b00aa;
+    --reward: #ffdd00;
+    --reward-glow: #ff8800;
+    --snake-head: #00ff6a;
+    --snake-body: #00cc55;
+    --snake-tail: #005522;
+    --text: #a0ffcc;
+    --danger: #ff2244;
+    --panel: #040f08;
+    --gold: #ffd700;
+    --silver: #c0c0c0;
+    --bronze: #cd7f32;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* CRT scanlines */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,255,106,0.015) 2px, rgba(0,255,106,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Animated background grid */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,106,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,106,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: bgScroll 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes bgScroll { to { background-position: 40px 40px; } }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    letter-spacing: 0.35em;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green), 0 0 60px rgba(0,255,106,0.3), 0 0 100px rgba(0,255,106,0.1);
+    margin: 18px 0 2px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    animation: titlePulse 3s ease-in-out infinite;
+  }
+  @keyframes titlePulse {
+    0%,100% { text-shadow: 0 0 20px var(--green), 0 0 60px rgba(0,255,106,0.3); }
+    50% { text-shadow: 0 0 30px var(--green), 0 0 80px rgba(0,255,106,0.5), 0 0 120px rgba(0,255,106,0.2); }
+  }
+
+  .subtitle {
+    font-size: 0.62rem;
+    letter-spacing: 0.25em;
+    color: var(--dim-green);
+    margin-bottom: 8px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .fruit-ticker {
+    font-size: 1rem;
+    letter-spacing: 0.4em;
+    margin-bottom: 10px;
+    animation: tickerScroll 8s linear infinite;
+    opacity: 0.7;
+    position: relative;
+    z-index: 1;
+  }
+  @keyframes tickerScroll {
+    0%,100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
+  }
+
+  .game-wrapper {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 0 10px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .side-panel {
+    width: 168px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .panel-box {
+    background: var(--panel);
+    border: 1px solid var(--dim-green);
+    padding: 9px 12px;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .panel-box::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    box-shadow: inset 0 0 10px rgba(0,255,106,0.05);
+    pointer-events: none;
+  }
+  .panel-box.highlight {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,106,0.2);
+  }
+
+  .panel-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--dim-green);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+
+  .panel-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--green);
+    text-shadow: 0 0 10px var(--green);
+    transition: transform 0.15s;
+  }
+  .panel-value.bump {
+    transform: scale(1.2);
+    color: var(--reward);
+    text-shadow: 0 0 14px var(--reward);
+  }
+
+  .combo-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    color: var(--reward);
+    text-shadow: 0 0 8px var(--reward);
+    min-height: 18px;
+    transition: opacity 0.3s;
+  }
+
+  .algo-list {
+    list-style: none;
+    font-size: 0.6rem;
+    line-height: 1.9;
+    color: #60cc88;
+  }
+  .algo-list li::before { content: '▸ '; color: var(--green); }
+  .algo-list li.active {
+    color: var(--green);
+    text-shadow: 0 0 6px var(--green);
+    background: rgba(0,255,106,0.05);
+    padding-left: 2px;
+  }
+
+  .legend { font-size: 0.58rem; line-height: 1.8; }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+  .legend-emoji { font-size: 0.85rem; }
+
+  /* Leaderboard */
+  .leaderboard {
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+  .lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0;
+    border-bottom: 1px solid #041a0e;
+    transition: background 0.2s;
+  }
+  .lb-entry:hover { background: rgba(0,255,106,0.03); }
+  .lb-rank { width: 16px; font-family: 'Orbitron', monospace; font-size: 0.5rem; color: var(--dim-green); }
+  .lb-rank.gold   { color: var(--gold); text-shadow: 0 0 6px var(--gold); }
+  .lb-rank.silver { color: var(--silver); }
+  .lb-rank.bronze { color: var(--bronze); }
+  .lb-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-score { color: var(--green); font-family: 'Orbitron', monospace; font-size: 0.55rem; text-shadow: 0 0 4px var(--green); }
+  .lb-empty { color: var(--dim-green); font-size: 0.55rem; padding: 4px 0; }
+
+  #canvas {
+    border: 1px solid var(--dim-green);
+    display: block;
+    box-shadow:
+      0 0 30px rgba(0,255,106,0.08),
+      0 0 2px var(--dim-green),
+      inset 0 0 60px rgba(0,0,0,0.5);
+    image-rendering: pixelated;
+    cursor: none;
+  }
+
+  .right-panel {
+    width: 168px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .daa-log {
+    background: var(--panel);
+    border: 1px solid var(--dim-green);
+    padding: 8px 10px;
+    font-size: 0.56rem;
+    line-height: 1.8;
+    color: #50bb77;
+    height: 190px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dim-green) transparent;
+  }
+  .daa-log .log-entry { border-bottom: 1px solid #041a0e; padding: 2px 0; }
+  .log-algo { color: var(--green); }
+  .log-time { color: #ffcc00; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--dim-green);
+    padding: 9px 12px;
+    font-size: 0.58rem;
+    line-height: 2;
+    color: #60cc88;
+  }
+  .key {
+    display: inline-block;
+    background: #061a0c;
+    border: 1px solid var(--dim-green);
+    padding: 0 4px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    color: var(--green);
+  }
+
+  /* Fruit score display */
+  .fruit-score-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    font-size: 0.6rem;
+    color: #60cc88;
+  }
+  .fruit-item {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(0,255,106,0.04);
+    border: 1px solid #041a0e;
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .fruit-item .fi-emoji { font-size: 0.75rem; }
+  .fi-pts { font-family: 'Orbitron', monospace; font-size: 0.5rem; color: var(--reward); }
+
+  /* Overlay */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(2,12,8,0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(2px);
+  }
+
+  .overlay-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    color: var(--green);
+    text-shadow: 0 0 30px var(--green);
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .overlay-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    color: var(--reward);
+    text-shadow: 0 0 12px var(--reward);
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  .overlay-rank {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    color: var(--gold);
+    text-shadow: 0 0 10px var(--gold);
+    margin-bottom: 14px;
+    text-align: center;
+    min-height: 20px;
+  }
+
+  .name-input-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .name-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: var(--dim-green);
+  }
+  #playerNameInput {
+    background: #040f08;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    text-align: center;
+    letter-spacing: 0.15em;
+    outline: none;
+    width: 200px;
+    text-transform: uppercase;
+    box-shadow: 0 0 10px rgba(0,255,106,0.15);
+  }
+  #playerNameInput::placeholder { color: #2a6640; }
+  #playerNameInput:focus { box-shadow: 0 0 20px rgba(0,255,106,0.3); }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 9px 26px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    box-shadow: 0 0 12px rgba(0,255,106,0.15);
+    margin: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(0,255,106,0.08) 100%);
+    transition: opacity 0.2s;
+    opacity: 0;
+  }
+  .btn:hover {
+    background: rgba(0,255,106,0.08);
+    box-shadow: 0 0 24px rgba(0,255,106,0.4);
+    text-shadow: 0 0 8px var(--green);
+  }
+  .btn:hover::after { opacity: 1; }
+
+  .speed-row { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+  .speed-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.1em;
+    background: transparent;
+    border: 1px solid var(--dim-green);
+    color: #60cc88;
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .speed-btn.active {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 8px rgba(0,255,106,0.3);
+    background: rgba(0,255,106,0.05);
+  }
+
+  .canvas-container { position: relative; }
+
+  .complexity-box {
+    font-size: 0.56rem;
+    line-height: 1.8;
+    color: #50aa70;
+    margin-top: 4px;
+  }
+  .complexity-box span { color: var(--reward); }
+
+  /* Floating score popup */
+  .score-popup {
+    position: absolute;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--reward);
+    text-shadow: 0 0 10px var(--reward);
+    pointer-events: none;
+    z-index: 50;
+    animation: floatUp 0.8s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+
+  /* Status bar */
+  .status-bar {
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    color: var(--dim-green);
+    margin-top: 6px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .status-bar .online { color: var(--green); }
+  .status-bar .offline { color: #ff4444; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+
+  /* Audio controls */
+  .audio-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .mute-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.15em;
+    background: transparent;
+    border: 1px solid var(--dim-green);
+    color: #60cc88;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .mute-btn:hover { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(0,255,106,0.3); }
+  .mute-btn.muted { border-color: var(--danger); color: var(--danger); }
+  .mute-btn .btn-icon { font-size: 0.75rem; }
+
+  .vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 80px;
+    height: 3px;
+    background: var(--dim-green);
+    outline: none;
+    cursor: pointer;
+  }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    cursor: pointer;
+  }
+  .vol-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.1em;
+    color: var(--dim-green);
+    font-family: 'Orbitron', monospace;
+  }
+
+  .now-playing {
+    font-size: 0.5rem;
+    letter-spacing: 0.12em;
+    color: var(--dim-green);
+    font-family: 'Orbitron', monospace;
+    min-width: 120px;
+    transition: color 0.3s;
+  }
+  .now-playing.active { color: var(--green); text-shadow: 0 0 6px var(--green); }
+</style>
+</head>
+<body>
+
+<h1>🐍 SERPENT</h1>
+<div class="subtitle">DESIGN &amp; ANALYSIS OF ALGORITHMS — SNAKE ENGINE</div>
+<div class="fruit-ticker">🍎 🍇 🍓 🍊 🍋 🍉 🍑 🫐 🥝 💣 🍎 🍇 🍓</div>
+<div class="audio-bar">
+  <button class="mute-btn" id="muteBtn" onclick="toggleMute()">
+    <span class="btn-icon" id="muteIcon">🔊</span>
+    <span id="muteLbl">SOUND ON</span>
+  </button>
+  <span class="vol-label">VOL</span>
+  <input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="70" oninput="setVolume(this.value)">
+  <span class="now-playing" id="nowPlaying">♩ READY</span>
+</div>
+
+<div class="game-wrapper">
+
+  <!-- LEFT PANEL -->
+  <div class="side-panel">
+    <div class="panel-box" id="scoreBox">
+      <div class="panel-label">Score</div>
+      <div class="panel-value" id="scoreVal">0</div>
+      <div class="combo-display" id="comboDisplay"></div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Length &nbsp;|&nbsp; Level</div>
+      <div style="display:flex;gap:12px;">
+        <div>
+          <div class="panel-value" id="lengthVal" style="font-size:1.2rem">3</div>
+        </div>
+        <div style="border-left:1px solid var(--dim-green); padding-left:10px;">
+          <div class="panel-value" id="levelVal" style="font-size:1.2rem">1</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fruit guide -->
+    <div class="panel-box">
+      <div class="panel-label">Fruit Rewards</div>
+      <div class="fruit-score-row" id="fruitGuide">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-label">DAA Algorithms</div>
+      <ul class="algo-list" id="algoList">
+        <li id="a-deque">Deque (Body)</li>
+        <li id="a-hash">Hash Set (Collision)</li>
+        <li id="a-fisher">Fisher-Yates (Spawn)</li>
+        <li id="a-bfs">BFS (Pathfind)</li>
+        <li id="a-greedy">Greedy (AI Hint)</li>
+        <li id="a-pq">Priority Queue</li>
+      </ul>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-emoji">🟢</span><span>Snake Head</span></div>
+        <div class="legend-item"><span class="legend-emoji">🍎</span><span>Fruit +pts</span></div>
+        <div class="legend-item"><span class="legend-emoji">⭐</span><span>Bonus +3× pts</span></div>
+        <div class="legend-item"><span class="legend-emoji">💣</span><span>Bomb = Death</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-container">
+    <canvas id="canvas"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="overlay-title" id="overlayTitle">SERPENT</div>
+      <div class="overlay-score" id="overlayScore">DAA-Powered Snake Engine</div>
+      <div class="overlay-rank" id="overlayRank"></div>
+      <div class="name-input-wrap">
+        <div class="name-label">Enter Your Name</div>
+        <input type="text" id="playerNameInput" maxlength="12" placeholder="PLAYER" spellcheck="false" autocomplete="off"/>
+      </div>
+      <button class="btn" onclick="startGame()">▶ START GAME</button>
+      <div class="speed-row">
+        <button class="speed-btn active" onclick="setSpeed(1,this)">SLOW</button>
+        <button class="speed-btn" onclick="setSpeed(2,this)">NORMAL</button>
+        <button class="speed-btn" onclick="setSpeed(3,this)">FAST</button>
+        <button class="speed-btn" onclick="setSpeed(4,this)">INSANE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="panel-box">
+      <div class="panel-label">Last Operation</div>
+      <div id="lastOp" style="font-size:0.6rem; color:var(--green); line-height:1.6; margin-top:4px;">—</div>
+      <div class="complexity-box" id="complexityBox"></div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">DAA Event Log</div>
+    </div>
+    <div class="daa-log" id="daaLog"></div>
+
+    <!-- Leaderboard -->
+    <div class="panel-box">
+      <div class="panel-label">🏆 Leaderboard</div>
+      <div class="leaderboard" id="leaderboard">
+        <div class="lb-empty">Loading scores...</div>
+      </div>
+    </div>
+
+    <div class="controls panel-box">
+      <div class="panel-label">Controls</div>
+      <span class="key">W</span>/<span class="key">↑</span> Up<br>
+      <span class="key">S</span>/<span class="key">↓</span> Down<br>
+      <span class="key">A</span>/<span class="key">←</span> Left<br>
+      <span class="key">D</span>/<span class="key">→</span> Right<br>
+      <span class="key">P</span> Pause &nbsp; <span class="key">H</span> Hint<br>
+      <span class="key">M</span> Mute
+    </div>
+  </div>
+
+</div>
+<div class="status-bar" id="statusBar">backend: <span id="backendStatus">checking...</span></div>
+
+<script>
+// ============================================================
+//  SERPENT — Enhanced Snake with Emoji Fruits & Backend Scores
+// ============================================================
+const CELL = 18;
+const COLS = 30;
+const ROWS = 26;
+const W = COLS * CELL;
+const H = ROWS * CELL;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = W;
+canvas.height = H;
+
+const API_BASE = 'http://localhost:3000/api';
+let backendOnline = false;
+
+// Fruit definitions: emoji, points multiplier, rarity weight
+const FRUITS = [
+  { emoji: '🍎', label: 'Apple',      pts: 10, weight: 30, color: '#ff4444' },
+  { emoji: '🍇', label: 'Grape',      pts: 15, weight: 20, color: '#9955ff' },
+  { emoji: '🍓', label: 'Strawberry', pts: 20, weight: 18, color: '#ff2255' },
+  { emoji: '🍊', label: 'Orange',     pts: 12, weight: 25, color: '#ff8800' },
+  { emoji: '🍋', label: 'Lemon',      pts: 8,  weight: 28, color: '#ffee00' },
+  { emoji: '🍉', label: 'Watermelon', pts: 25, weight: 12, color: '#00cc44' },
+  { emoji: '🍑', label: 'Peach',      pts: 18, weight: 15, color: '#ffaa55' },
+  { emoji: '🫐', label: 'Blueberry',  pts: 30, weight: 8,  color: '#4488ff' },
+  { emoji: '🥝', label: 'Kiwi',       pts: 22, weight: 10, color: '#66dd00' },
+  { emoji: '⭐', label: 'Star',        pts: 50, weight: 3,  color: '#ffd700', special: true },
+];
+const BOMB_EMOJI = '💣';
+
+// Build fruit guide
+const fruitGuide = document.getElementById('fruitGuide');
+FRUITS.forEach(f => {
+  const div = document.createElement('div');
+  div.className = 'fruit-item';
+  div.innerHTML = `<span class="fi-emoji">${f.emoji}</span><span class="fi-pts">+${f.pts}</span>`;
+  div.title = `${f.label}: +${f.pts} pts`;
+  fruitGuide.appendChild(div);
+});
+
+function pickFruit() {
+  const total = FRUITS.reduce((s, f) => s + f.weight, 0);
+  let r = Math.random() * total;
+  for (const f of FRUITS) {
+    r -= f.weight;
+    if (r <= 0) return f;
+  }
+  return FRUITS[0];
+}
+
+const SPEEDS = [160, 110, 70, 38];
+const SPEED_LABELS = ['SLOW', 'NORMAL', 'FAST', 'INSANE'];
+let speedIdx = 0;
+
+class Deque {
+  constructor() { this.data = []; }
+  pushFront(v) { this.data.unshift(v); }
+  pushBack(v)  { this.data.push(v); }
+  popBack()    { return this.data.pop(); }
+  popFront()   { return this.data.shift(); }
+  front()      { return this.data[0]; }
+  back()       { return this.data[this.data.length - 1]; }
+  get size()   { return this.data.length; }
+  toArray()    { return this.data; }
+}
+
+class HashSet {
+  constructor() { this.set = new Set(); }
+  key(x, y)    { return `${x},${y}`; }
+  add(x, y)    { this.set.add(this.key(x, y)); }
+  has(x, y)    { return this.set.has(this.key(x, y)); }
+  delete(x, y) { this.set.delete(this.key(x, y)); }
+  clear()      { this.set.clear(); }
+  get size()   { return this.set.size; }
+}
+
+class MinHeap {
+  constructor(cmp) { this.heap = []; this.cmp = cmp; }
+  push(v) { this.heap.push(v); this._up(this.heap.length - 1); }
+  pop() {
+    const top = this.heap[0];
+    const last = this.heap.pop();
+    if (this.heap.length > 0) { this.heap[0] = last; this._down(0); }
+    return top;
+  }
+  peek() { return this.heap[0]; }
+  get size() { return this.heap.length; }
+  _up(i) {
+    while (i > 0) {
+      const p = (i-1)>>1;
+      if (this.cmp(this.heap[i], this.heap[p]) < 0) {
+        [this.heap[i], this.heap[p]] = [this.heap[p], this.heap[i]]; i = p;
+      } else break;
+    }
+  }
+  _down(i) {
+    const n = this.heap.length;
+    while (true) {
+      let m=i, l=2*i+1, r=2*i+2;
+      if (l<n && this.cmp(this.heap[l],this.heap[m])<0) m=l;
+      if (r<n && this.cmp(this.heap[r],this.heap[m])<0) m=r;
+      if (m!==i) { [this.heap[i],this.heap[m]]=[this.heap[m],this.heap[i]]; i=m; } else break;
+    }
+  }
+}
+
+function fisherYatesSample(arr, k) {
+  const copy = arr.slice();
+  const result = [];
+  for (let i = 0; i < k && i < copy.length; i++) {
+    const j = i + Math.floor(Math.random() * (copy.length - i));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+    result.push(copy[i]);
+  }
+  return result;
+}
+
+function bfsPath(startX, startY, goalX, goalY, bodySet) {
+  const queue = [[startX, startY, []]];
+  const visited = new Set([`${startX},${startY}`]);
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+  while (queue.length > 0) {
+    const [cx, cy, path] = queue.shift();
+    for (const [dx, dy] of dirs) {
+      const nx = cx+dx, ny = cy+dy, k = `${nx},${ny}`;
+      if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+      if (visited.has(k) || bodySet.has(nx,ny)) continue;
+      const np = [...path, [nx,ny]];
+      if (nx===goalX && ny===goalY) return np;
+      visited.add(k);
+      queue.push([nx,ny,np]);
+    }
+  }
+  return null;
+}
+
+function greedyNextDir(head, dir, bodySet, rewards, poisons) {
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+  let bestScore = -Infinity, bestDir = dir;
+  for (const [dx,dy] of dirs) {
+    const nx = head.x+dx, ny = head.y+dy;
+    if (nx<0||nx>=COLS||ny<0||ny>=ROWS||bodySet.has(nx,ny)) continue;
+    let score = 0;
+    for (const r of rewards) score += 100/(Math.abs(nx-r.x)+Math.abs(ny-r.y)+1);
+    for (const p of poisons) score -= 80/(Math.abs(nx-p.x)+Math.abs(ny-p.y)+1);
+    score -= (nx===0||nx===COLS-1||ny===0||ny===ROWS-1) ? 10 : 0;
+    if (score > bestScore) { bestScore = score; bestDir = [dx,dy]; }
+  }
+  return bestDir;
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let snake, bodySet, rewards, poisons, itemHeap;
+let dir, nextDir;
+let score, level, gameOver, paused, running;
+let tickInterval, particles, hintPath;
+let tickCount = 0, logEntries = [], combo = 0;
+let playerName = 'PLAYER';
+let fruitEatenCount = {};
+
+function initGame() {
+  snake = new Deque();
+  bodySet = new HashSet();
+  rewards = [];
+  poisons = [];
+  particles = [];
+  hintPath = null;
+  combo = 0;
+  fruitEatenCount = {};
+  itemHeap = new MinHeap((a,b) => a.spawnTick - b.spawnTick);
+
+  for (let i = 4; i >= 2; i--) {
+    snake.pushBack({ x: i, y: Math.floor(ROWS/2) });
+    bodySet.add(i, Math.floor(ROWS/2));
+  }
+
+  dir = [1, 0];
+  nextDir = [1, 0];
+  score = 0;
+  level = 1;
+  gameOver = false;
+  paused = false;
+  tickCount = 0;
+  logEntries = [];
+
+  updateUI();
+  spawnItems();
+  daaLog('INIT', 'Deque initialized O(1)', 'Deque');
+  daaLog('INIT', 'HashSet built O(n)', 'HashSet');
+}
+
+function freeCells() {
+  const free = [];
+  for (let x = 1; x < COLS-1; x++)
+    for (let y = 1; y < ROWS-1; y++)
+      if (!bodySet.has(x,y)) free.push({x,y});
+  return free;
+}
+
+function spawnItems() {
+  while (itemHeap.size > 0 && itemHeap.peek().spawnTick < tickCount - 220) {
+    const expired = itemHeap.pop();
+    rewards = rewards.filter(r => !(r.x===expired.x && r.y===expired.y));
+    poisons = poisons.filter(p => !(p.x===expired.x && p.y===expired.y));
+    daaLog('PQ', 'Expired item removed O(log n)', 'PQ');
+  }
+
+  const maxRewards = 2 + Math.floor(level / 2);
+  const maxPoisons = 1 + level;
+  const free = freeCells();
+  if (free.length < 5) return;
+
+  const needed = Math.max(0, maxRewards - rewards.length) + Math.max(0, maxPoisons - poisons.length);
+  if (needed <= 0) return;
+
+  const spots = fisherYatesSample(free, needed);
+  let si = 0;
+
+  while (rewards.length < maxRewards && si < spots.length) {
+    const s = spots[si++];
+    const fruit = pickFruit();
+    const item = { x: s.x, y: s.y, spawnTick: tickCount, fruit };
+    rewards.push(item);
+    itemHeap.push(item);
+    daaLog('SPAWN', `${fruit.emoji} ${fruit.label} at (${s.x},${s.y})`, 'Fisher');
+  }
+  while (poisons.length < maxPoisons && si < spots.length) {
+    const s = spots[si++];
+    const item = { x: s.x, y: s.y, spawnTick: tickCount, isPoison: true };
+    poisons.push(item);
+    itemHeap.push(item);
+    daaLog('SPAWN', `💣 Bomb at (${s.x},${s.y})`, 'Fisher');
+  }
+}
+
+function tick() {
+  if (paused || gameOver) return;
+  tickCount++;
+  dir = nextDir;
+
+  const head = snake.front();
+  const nx = head.x + dir[0];
+  const ny = head.y + dir[1];
+
+  if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
+    playWallHit();
+    endGame('Wall collision 🧱'); return;
+  }
+  if (bodySet.has(nx, ny)) {
+    daaLog('HASH', `Collision @ (${nx},${ny}) O(1)`, 'HashSet');
+    playDeath();
+    endGame('Self collision 🐍'); return;
+  }
+
+  const poisonIdx = poisons.findIndex(p => p.x===nx && p.y===ny);
+  if (poisonIdx !== -1) {
+    canvas.classList.add('shake');
+    setTimeout(() => canvas.classList.remove('shake'), 400);
+    spawnParticles(nx, ny, '#c800ff', 20);
+    playBombHit();
+    daaLog('EVENT', '💣 BOMB hit! Game over.', 'HashSet');
+    endGame('Bomb hit 💣'); return;
+  }
+
+  const newHead = { x: nx, y: ny };
+  snake.pushFront(newHead);
+  bodySet.add(nx, ny);
+  playMove();
+  daaLog('DEQUE', `pushFront(${nx},${ny}) O(1)`, 'Deque');
+
+  const rewardIdx = rewards.findIndex(r => r.x===nx && r.y===ny);
+  if (rewardIdx !== -1) {
+    const item = rewards[rewardIdx];
+    const f = item.fruit;
+    const pts = f.pts * level;
+    combo++;
+    score += pts;
+    rewards.splice(rewardIdx, 1);
+    spawnParticles(nx, ny, f.color, f.special ? 30 : 14);
+    showScorePopup(nx, ny, `+${pts} ${f.emoji}`);
+    playEat(FRUITS.indexOf(f), f.special, combo);
+    fruitEatenCount[f.label] = (fruitEatenCount[f.label] || 0) + 1;
+    daaLog('EVENT', `${f.emoji} +${pts}pts (x${combo} combo)`, 'PQ');
+    if (score > 0 && score % 60 === 0) {
+      level++;
+      playLevelUp();
+      daaLog('LEVEL', `⬆ Level ${level}!`, 'System');
+    }
+    hintPath = null;
+    bumpScore();
+  } else {
+    combo = 0;
+    const tail = snake.popBack();
+    bodySet.delete(tail.x, tail.y);
+    daaLog('DEQUE', `popBack(${tail.x},${tail.y}) O(1)`, 'Deque');
+  }
+
+  if (tickCount % 15 === 0) spawnItems();
+  updateUI();
+  draw();
+}
+
+async function endGame(reason) {
+  gameOver = true;
+  clearInterval(tickInterval);
+  stopBgMusic();
+  daaLog('END', reason, 'System');
+
+  // Try to save score
+  let rank = null;
+  if (backendOnline && score > 0) {
+    try {
+      const res = await fetch(`${API_BASE}/scores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player: playerName,
+          score, length: snake.size, level,
+          reason, speed: SPEED_LABELS[speedIdx]
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        rank = data.rank;
+        loadLeaderboard();
+      }
+    } catch(e) { /* offline */ }
+  }
+
+  const rankText = rank ? `🏆 RANK #${rank} on Leaderboard` : (score > 0 ? 'Score not saved (offline)' : '');
+
+  const ov = document.getElementById('overlay');
+  ov.innerHTML = `
+    <div class="overlay-title" style="color:var(--danger);text-shadow:0 0 30px var(--danger)">GAME OVER</div>
+    <div class="overlay-score">${reason}</div>
+    <div style="font-family:'Orbitron',monospace;font-size:0.85rem;color:var(--reward);margin-bottom:6px">
+      SCORE: ${score} &nbsp;|&nbsp; LEN: ${snake.size} &nbsp;|&nbsp; LVL: ${level}
+    </div>
+    <div class="overlay-rank">${rankText}</div>
+    <div class="name-input-wrap">
+      <div class="name-label">Player Name</div>
+      <input type="text" id="playerNameInput" maxlength="12" value="${playerName}" spellcheck="false" autocomplete="off" style="background:#040f08;border:1px solid var(--green);color:var(--green);font-family:'Orbitron',monospace;font-size:0.8rem;padding:6px 14px;text-align:center;letter-spacing:.15em;outline:none;width:200px;text-transform:uppercase"/>
+    </div>
+    <button class="btn" onclick="startGame()">▶ RESTART</button>
+    <div class="speed-row">
+      <button class="speed-btn ${speedIdx===0?'active':''}" onclick="setSpeed(1,this)">SLOW</button>
+      <button class="speed-btn ${speedIdx===1?'active':''}" onclick="setSpeed(2,this)">NORMAL</button>
+      <button class="speed-btn ${speedIdx===2?'active':''}" onclick="setSpeed(3,this)">FAST</button>
+      <button class="speed-btn ${speedIdx===3?'active':''}" onclick="setSpeed(4,this)">INSANE</button>
+    </div>`;
+  ov.style.display = 'flex';
+}
+
+function startGame() {
+  unlockAudio();
+  const inp = document.getElementById('playerNameInput');
+  if (inp && inp.value.trim()) playerName = inp.value.trim().toUpperCase();
+  document.getElementById('overlay').style.display = 'none';
+  initGame();
+  running = true;
+  clearInterval(tickInterval);
+  tickInterval = setInterval(tick, SPEEDS[speedIdx]);
+  requestAnimationFrame(drawLoop);
+  playStart();
+  setTimeout(() => startBgMusic(), 700);
+}
+
+function setSpeed(s, btn) {
+  speedIdx = s - 1;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (running && !gameOver) {
+    clearInterval(tickInterval);
+    tickInterval = setInterval(tick, SPEEDS[speedIdx]);
+  }
+}
+
+function showHint() {
+  if (!running || gameOver || paused) return;
+  const head = snake.front();
+  let shortestPath = null, shortestLen = Infinity;
+  for (const r of rewards) {
+    const path = bfsPath(head.x, head.y, r.x, r.y, bodySet);
+    if (path && path.length < shortestLen) {
+      shortestLen = path.length;
+      shortestPath = path;
+    }
+  }
+  hintPath = shortestPath;
+  daaLog('BFS', `Pathfind ${shortestLen} steps O(V+E)`, 'BFS');
+  highlightAlgo('a-bfs');
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+let animFrame;
+function drawLoop() {
+  if (!running) return;
+  updateParticles();
+  if (paused || gameOver) draw();
+  animFrame = requestAnimationFrame(drawLoop);
+}
+
+// Pre-render emoji cache
+const emojiCache = {};
+function getEmojiCanvas(emoji, size) {
+  const key = `${emoji}_${size}`;
+  if (emojiCache[key]) return emojiCache[key];
+  const oc = document.createElement('canvas');
+  oc.width = oc.height = size;
+  const oc_ctx = oc.getContext('2d');
+  oc_ctx.font = `${size - 2}px serif`;
+  oc_ctx.textAlign = 'center';
+  oc_ctx.textBaseline = 'middle';
+  oc_ctx.fillText(emoji, size/2, size/2);
+  emojiCache[key] = oc;
+  return oc;
+}
+
+function draw() {
+  ctx.fillStyle = '#020c08';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#041a0e';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= COLS; x++) {
+    ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,H); ctx.stroke();
+  }
+  for (let y = 0; y <= ROWS; y++) {
+    ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(W,y*CELL); ctx.stroke();
+  }
+
+  // BFS hint
+  if (hintPath) {
+    for (const [hx, hy] of hintPath) {
+      ctx.fillStyle = 'rgba(0,255,106,0.07)';
+      ctx.fillRect(hx*CELL+1, hy*CELL+1, CELL-2, CELL-2);
+    }
+  }
+
+  const t = Date.now();
+
+  // Rewards (emoji fruits)
+  for (const r of rewards) {
+    const cx = r.x*CELL + CELL/2, cy = r.y*CELL + CELL/2;
+    const pulse = 0.85 + 0.15 * Math.sin(t * 0.005 + r.x + r.y);
+    const f = r.fruit;
+    const size = Math.floor(CELL * pulse);
+
+    // Glow backdrop
+    if (f.special) {
+      ctx.shadowBlur = 18 * pulse;
+      ctx.shadowColor = f.color;
+      ctx.fillStyle = `${f.color}22`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL/2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    const ec = getEmojiCanvas(f.emoji, CELL + 4);
+    ctx.drawImage(ec, cx - (CELL+4)/2*pulse, cy - (CELL+4)/2*pulse, (CELL+4)*pulse, (CELL+4)*pulse);
+  }
+
+  // Poisons (bomb emoji)
+  for (const p of poisons) {
+    const cx = p.x*CELL + CELL/2, cy = p.y*CELL + CELL/2;
+    const pulse = 0.9 + 0.1 * Math.sin(t * 0.009 + p.y * 2);
+    ctx.shadowBlur = 14 * pulse;
+    ctx.shadowColor = '#ff4400';
+    const bc = getEmojiCanvas(BOMB_EMOJI, CELL + 2);
+    ctx.drawImage(bc, cx - (CELL+2)/2*pulse, cy - (CELL+2)/2*pulse, (CELL+2)*pulse, (CELL+2)*pulse);
+    ctx.shadowBlur = 0;
+  }
+
+  // Snake
+  const body = snake.toArray();
+  for (let i = body.length - 1; i >= 0; i--) {
+    const seg = body[i];
+    const frac = i / body.length;
+    const g = Math.round(0xff - frac * (0xff - 0x55));
+    const b = Math.round(0x6a - frac * (0x6a - 0x22));
+    ctx.fillStyle = `rgb(0,${g},${b})`;
+    ctx.shadowBlur = i === 0 ? 14 : 0;
+    ctx.shadowColor = '#00ff6a';
+    const pad = i === 0 ? 1 : 2;
+    ctx.beginPath();
+    ctx.roundRect(seg.x*CELL+pad, seg.y*CELL+pad, CELL-pad*2, CELL-pad*2, i===0?5:3);
+    ctx.fill();
+
+    // Eyes
+    if (i === 0) {
+      ctx.fillStyle = '#001a00';
+      ctx.shadowBlur = 0;
+      const [dx, dy] = dir;
+      const ex1 = seg.x*CELL + CELL/2 + dy*3 - dx*3;
+      const ey1 = seg.y*CELL + CELL/2 + dx*3 + dy*3;
+      const ex2 = seg.x*CELL + CELL/2 - dy*3 - dx*3;
+      const ey2 = seg.y*CELL + CELL/2 - dx*3 + dy*3;
+      ctx.beginPath(); ctx.arc(ex1+dx*2, ey1+dy*2, 1.8, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2+dx*2, ey2+dy*2, 1.8, 0, Math.PI*2); ctx.fill();
+      // Pupils
+      ctx.fillStyle = '#00ff6a';
+      ctx.beginPath(); ctx.arc(ex1+dx*2.5, ey1+dy*2.5, 0.7, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2+dx*2.5, ey2+dy*2.5, 0.7, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+
+  // Particles
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Paused
+  if (paused && !gameOver) {
+    ctx.fillStyle = 'rgba(2,12,8,0.65)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = "bold 26px 'Orbitron'";
+    ctx.fillStyle = '#00ff6a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = '#00ff6a';
+    ctx.fillText('⏸ PAUSED', W/2, H/2);
+    ctx.shadowBlur = 0;
+  }
+}
+
+function spawnParticles(gx, gy, color, count = 12) {
+  const cx = gx*CELL + CELL/2, cy = gy*CELL + CELL/2;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI*2/count)*i + Math.random()*0.5;
+    const speed = 1.5 + Math.random()*3;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      r: 1.5 + Math.random()*2.5,
+      life: 1, color
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.06;
+    p.life -= 0.035;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function showScorePopup(gx, gy, text) {
+  const container = document.querySelector('.canvas-container');
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.textContent = text;
+  el.style.left = `${gx * CELL + CELL/2}px`;
+  el.style.top  = `${gy * CELL}px`;
+  container.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+document.addEventListener('keydown', e => {
+  unlockAudio();
+  if (!running || gameOver) return;
+  const map = {
+    ArrowUp:'UP', w:'UP', W:'UP',
+    ArrowDown:'DOWN', s:'DOWN', S:'DOWN',
+    ArrowLeft:'LEFT', a:'LEFT', A:'LEFT',
+    ArrowRight:'RIGHT', d:'RIGHT', D:'RIGHT',
+  };
+  const d = map[e.key];
+  if (d) {
+    const [cx, cy] = dir;
+    if (d==='UP'    && cy===0)  { nextDir=[0,-1]; e.preventDefault(); }
+    if (d==='DOWN'  && cy===0)  { nextDir=[0,1];  e.preventDefault(); }
+    if (d==='LEFT'  && cx===0)  { nextDir=[-1,0]; e.preventDefault(); }
+    if (d==='RIGHT' && cx===0)  { nextDir=[1,0];  e.preventDefault(); }
+  }
+  if (e.key==='p'||e.key==='P') { paused = !paused; playPause(); if (!paused) startBgMusic(); else stopBgMusic(); }
+  if (e.key==='h'||e.key==='H') { showHint(); }
+  if (e.key==='m'||e.key==='M') { toggleMute(); }
+});
+
+function updateUI() {
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('lengthVal').textContent = snake ? snake.size : 0;
+  document.getElementById('levelVal').textContent = level;
+  const cd = document.getElementById('comboDisplay');
+  if (combo >= 2) {
+    cd.textContent = `×${combo} COMBO!`;
+    cd.style.opacity = '1';
+  } else {
+    cd.style.opacity = '0';
+  }
+}
+
+function bumpScore() {
+  const box = document.getElementById('scoreVal');
+  box.classList.add('bump');
+  setTimeout(() => box.classList.remove('bump'), 200);
+}
+
+let lastHighlight = null;
+function highlightAlgo(id) {
+  if (lastHighlight) document.getElementById(lastHighlight)?.classList.remove('active');
+  document.getElementById(id)?.classList.add('active');
+  lastHighlight = id;
+  setTimeout(() => document.getElementById(id)?.classList.remove('active'), 800);
+}
+
+const algoMap = { 'Deque':'a-deque','HashSet':'a-hash','Fisher':'a-fisher','BFS':'a-bfs','Greedy':'a-greedy','PQ':'a-pq','System':null };
+const complexityInfo = {
+  'Deque':  { op:'push/pop ends', time:'O(1)',   space:'O(n)' },
+  'HashSet':{ op:'lookup/insert', time:'O(1) avg',space:'O(n)'},
+  'Fisher': { op:'k-sample',      time:'O(k)',   space:'O(n)' },
+  'BFS':    { op:'pathfinding',   time:'O(V+E)', space:'O(V)' },
+  'Greedy': { op:'direction pick',time:'O(d)',   space:'O(1)' },
+  'PQ':     { op:'insert/remove', time:'O(log n)',space:'O(n)'},
+};
+
+function daaLog(type, msg, algo) {
+  logEntries.unshift({ type, msg, algo, tick: tickCount });
+  if (logEntries.length > 60) logEntries.pop();
+  const logEl = document.getElementById('daaLog');
+  logEl.innerHTML = logEntries.slice(0, 20).map(e =>
+    `<div class="log-entry">
+      <span class="log-algo">[${e.algo}]</span>
+      <span class="log-time"> T:${e.tick}</span><br>
+      ${e.msg}
+    </div>`
+  ).join('');
+  if (algo && algoMap[algo]) highlightAlgo(algoMap[algo]);
+  const info = complexityInfo[algo];
+  if (info) {
+    document.getElementById('lastOp').textContent = `${algo}: ${msg.split(' ')[0]}`;
+    document.getElementById('complexityBox').innerHTML =
+      `Time: <span>${info.time}</span><br>Space: <span>${info.space}</span>`;
+  }
+}
+
+async function loadLeaderboard() {
+  const el = document.getElementById('leaderboard');
+  try {
+    const res = await fetch(`${API_BASE}/scores`);
+    const data = await res.json();
+    backendOnline = true;
+    document.getElementById('backendStatus').innerHTML = '<span class="online">● ONLINE</span>';
+
+    if (!data.scores || data.scores.length === 0) {
+      el.innerHTML = '<div class="lb-empty">No scores yet. Be first!</div>';
+      return;
+    }
+
+    const rankClass = i => i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    el.innerHTML = data.scores.map((s, i) =>
+      `<div class="lb-entry">
+        <span class="lb-rank ${rankClass(i)}">${i<3?['🥇','🥈','🥉'][i]:`#${i+1}`}</span>
+        <span class="lb-name" title="${s.player}">${s.player}</span>
+        <span class="lb-score">${s.score}</span>
+      </div>`
+    ).join('');
+  } catch (e) {
+    backendOnline = false;
+    document.getElementById('backendStatus').innerHTML = '<span class="offline">● OFFLINE</span>';
+    el.innerHTML = '<div class="lb-empty">Start server for leaderboard</div>';
+  }
+}
+
+// ============================================================
+// AUDIO ENGINE — Pure Web Audio API, zero external files
+// ============================================================
+let audioCtx = null;
+let masterGain = null;
+let muted = false;
+let bgLoopNode = null;
+let bgLoopGain = null;
+let masterVolume = 0.70;
+let audioUnlocked = false;
+
+function ensureAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = masterVolume;
+  masterGain.connect(audioCtx.destination);
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  ensureAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  audioUnlocked = true;
+}
+
+// ---- Low-level helpers ----
+function makeOsc(type, freq, startTime, endTime, gainStart, gainEnd, dest) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  g.gain.setValueAtTime(gainStart, startTime);
+  g.gain.exponentialRampToValueAtTime(Math.max(gainEnd, 0.0001), endTime);
+  osc.connect(g); g.connect(dest || masterGain);
+  osc.start(startTime); osc.stop(endTime + 0.01);
+  return { osc, g };
+}
+
+function addFreqRamp(osc, freqEnd, startTime, endTime) {
+  osc.frequency.exponentialRampToValueAtTime(freqEnd, endTime);
+}
+
+function makeNoise(duration, gainVal, dest) {
+  const bufLen = audioCtx.sampleRate * duration;
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  src.connect(g); g.connect(dest || masterGain);
+  src.start(); src.stop(audioCtx.currentTime + duration);
+}
+
+// ---- BACKGROUND LOOP — ambient synth slither ----
+function startBgMusic() {
+  if (!audioCtx || muted) return;
+  stopBgMusic();
+
+  bgLoopGain = audioCtx.createGain();
+  bgLoopGain.gain.value = 0.18;
+  bgLoopGain.connect(masterGain);
+
+  // Build a looping rhythmic pulse using oscillators scheduled ahead
+  const bpm = 120 + speedIdx * 20;
+  const beat = 60 / bpm;
+  const loopBars = 8;
+  const totalTime = beat * 4 * loopBars;
+  const now = audioCtx.currentTime;
+
+  // Bass pulse pattern (root notes)
+  const bassNotes = [55, 55, 58, 55, 55, 58, 62, 58]; // A1, A1, Bb1, ...
+  for (let bar = 0; bar < loopBars; bar++) {
+    const t = now + bar * beat * 4;
+    const freq = bassNotes[bar % bassNotes.length];
+    // Kick-like bass thump
+    const b = audioCtx.createOscillator();
+    const bg = audioCtx.createGain();
+    b.type = 'sine';
+    b.frequency.setValueAtTime(freq * 2, t);
+    b.frequency.exponentialRampToValueAtTime(freq * 0.8, t + 0.15);
+    bg.gain.setValueAtTime(0.4, t);
+    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    b.connect(bg); bg.connect(bgLoopGain);
+    b.start(t); b.stop(t + 0.35);
+  }
+
+  // Arp melody layer
+  const scale = [220, 246.94, 261.63, 293.66, 329.63, 369.99, 392, 440];
+  for (let i = 0; i < 32; i++) {
+    const t = now + i * beat * 0.5;
+    const freq = scale[i % scale.length] * (i % 8 < 4 ? 1 : 2);
+    const o = audioCtx.createOscillator();
+    const og = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.value = freq;
+    og.gain.setValueAtTime(0.04, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.45);
+    o.connect(og); og.connect(bgLoopGain);
+    o.start(t); o.stop(t + beat * 0.5);
+  }
+
+  // Pad/drone chord
+  const padFreqs = [110, 138.59, 164.81];
+  padFreqs.forEach((f, i) => {
+    const o = audioCtx.createOscillator();
+    const og = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    og.gain.setValueAtTime(0.0, now);
+    og.gain.linearRampToValueAtTime(0.06, now + 0.5);
+    og.gain.linearRampToValueAtTime(0.06, now + totalTime - 0.5);
+    og.gain.linearRampToValueAtTime(0.0, now + totalTime);
+    const vib = audioCtx.createOscillator();
+    const vibG = audioCtx.createGain();
+    vib.frequency.value = 5 + i * 0.3;
+    vibG.gain.value = 1.5;
+    vib.connect(vibG); vibG.connect(o.frequency);
+    o.connect(og); og.connect(bgLoopGain);
+    o.start(now); o.stop(now + totalTime);
+    vib.start(now); vib.stop(now + totalTime);
+  });
+
+  // Hi-hat pattern
+  for (let i = 0; i < loopBars * 8; i++) {
+    const t = now + i * beat * 0.5;
+    const nb = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.04), audioCtx.sampleRate);
+    const nd = nb.getChannelData(0);
+    for (let j = 0; j < nd.length; j++) nd[j] = Math.random() * 2 - 1;
+    const ns = audioCtx.createBufferSource();
+    ns.buffer = nb;
+    const hpf = audioCtx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 8000;
+    const hg = audioCtx.createGain();
+    hg.gain.setValueAtTime(i % 2 === 0 ? 0.08 : 0.04, t);
+    hg.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    ns.connect(hpf); hpf.connect(hg); hg.connect(bgLoopGain);
+    ns.start(t); ns.stop(t + 0.05);
+  }
+
+  // Loop after totalTime
+  bgLoopNode = setTimeout(() => { if (!muted && running && !gameOver) startBgMusic(); }, totalTime * 1000 - 100);
+}
+
+function stopBgMusic() {
+  if (bgLoopNode) { clearTimeout(bgLoopNode); bgLoopNode = null; }
+  if (bgLoopGain) {
+    try {
+      bgLoopGain.gain.setValueAtTime(bgLoopGain.gain.value, audioCtx.currentTime);
+      bgLoopGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+    } catch(e) {}
+    bgLoopGain = null;
+  }
+}
+
+// ---- EAT FRUIT ----
+// Each fruit index gets a distinct pitch/timbre
+const FRUIT_FREQS = [523, 587, 659, 698, 784, 880, 988, 1047, 1175, 1319];
+function playEat(fruitIndex, isSpecial, comboCount) {
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime;
+  const baseFreq = FRUIT_FREQS[fruitIndex % FRUIT_FREQS.length];
+  const comboBoost = 1 + (comboCount - 1) * 0.05;
+
+  if (isSpecial) {
+    // ⭐ Star — ascending fanfare arpeggio
+    [1, 1.25, 1.5, 2, 2.5].forEach((mult, i) => {
+      makeOsc('triangle', baseFreq * mult * comboBoost, now + i * 0.07, now + i * 0.07 + 0.18, 0.3, 0.001);
+    });
+    // Sparkle shimmer
+    for (let i = 0; i < 8; i++) {
+      makeOsc('sine', baseFreq * (2 + Math.random() * 2), now + Math.random() * 0.3, now + 0.1 + Math.random() * 0.3, 0.08, 0.001);
+    }
+  } else {
+    // Regular fruit — snappy 2-tone pop, pitch varies by fruit
+    makeOsc('square', baseFreq * comboBoost, now, now + 0.04, 0.25, 0.001);
+    makeOsc('sine',   baseFreq * 1.5 * comboBoost, now + 0.03, now + 0.13, 0.2, 0.001);
+    // Combo escalation — extra chime layers
+    if (comboCount >= 3) {
+      makeOsc('triangle', baseFreq * 2 * comboBoost, now + 0.06, now + 0.2, 0.15, 0.001);
+    }
+    if (comboCount >= 5) {
+      makeOsc('sine', baseFreq * 3 * comboBoost, now + 0.09, now + 0.25, 0.12, 0.001);
+    }
+  }
+
+  // Update now-playing display
+  setNowPlaying(`🍎 EAT ${isSpecial ? '⭐ STAR!' : `x${comboCount}`}`);
+}
+
+// ---- BOMB / POISON HIT ----
+function playBombHit() {
+  if (!audioCtx || muted) return;
+  stopBgMusic();
+  const now = audioCtx.currentTime;
+
+  // Low boom
+  const boom = audioCtx.createOscillator();
+  const boomG = audioCtx.createGain();
+  boom.type = 'sawtooth';
+  boom.frequency.setValueAtTime(80, now);
+  boom.frequency.exponentialRampToValueAtTime(20, now + 0.6);
+  boomG.gain.setValueAtTime(0.8, now);
+  boomG.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  boom.connect(boomG); boomG.connect(masterGain);
+  boom.start(now); boom.stop(now + 0.65);
+
+  // Noise explosion burst
+  makeNoise(0.5, 0.6);
+
+  // Distorted crunch layers
+  [55, 73.4, 98].forEach((f, i) => {
+    makeOsc('sawtooth', f, now + i * 0.03, now + 0.5, 0.3, 0.001);
+  });
+
+  // High-pitched alarm ring
+  makeOsc('square', 880, now + 0.1, now + 0.5, 0.15, 0.001);
+  makeOsc('square', 660, now + 0.15, now + 0.5, 0.1, 0.001);
+
+  setNowPlaying('💣 BOOM!');
+}
+
+// ---- DEATH / WALL / SELF-COLLISION ----
+function playDeath() {
+  if (!audioCtx || muted) return;
+  stopBgMusic();
+  const now = audioCtx.currentTime;
+
+  // Descending chromatic death tune
+  const deathNotes = [440, 392, 349.23, 311.13, 277.18, 246.94, 220, 196, 164.81, 110];
+  deathNotes.forEach((freq, i) => {
+    const t = now + i * 0.11;
+    makeOsc('sawtooth', freq, t, t + 0.14, 0.25, 0.001);
+    makeOsc('square', freq * 0.5, t, t + 0.14, 0.1, 0.001);
+  });
+
+  // Rumble at end
+  const rumble = audioCtx.createOscillator();
+  const rg = audioCtx.createGain();
+  rumble.type = 'sine';
+  rumble.frequency.setValueAtTime(60, now + 1.0);
+  rumble.frequency.exponentialRampToValueAtTime(30, now + 2.0);
+  rg.gain.setValueAtTime(0.3, now + 1.0);
+  rg.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  rumble.connect(rg); rg.connect(masterGain);
+  rumble.start(now + 1.0); rumble.stop(now + 2.1);
+
+  setNowPlaying('💀 GAME OVER');
+}
+
+// ---- LEVEL UP ----
+function playLevelUp() {
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime;
+  // Ascending major arpeggio
+  const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+  notes.forEach((f, i) => {
+    makeOsc('triangle', f, now + i * 0.09, now + i * 0.09 + 0.22, 0.28, 0.001);
+    makeOsc('sine',     f * 2, now + i * 0.09, now + i * 0.09 + 0.15, 0.1, 0.001);
+  });
+  setNowPlaying('⬆ LEVEL UP!');
+}
+
+// ---- MOVE TICK (subtle slither) ----
+let lastMoveSound = 0;
+function playMove() {
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime;
+  // Only play every few ticks to avoid clutter
+  if (now - lastMoveSound < 0.06) return;
+  lastMoveSound = now;
+  // Very quiet tick
+  const freq = 200 + Math.random() * 40;
+  makeOsc('sine', freq, now, now + 0.025, 0.04, 0.001);
+}
+
+// ---- WALL HIT ----
+function playWallHit() {
+  if (!audioCtx || muted) return;
+  stopBgMusic();
+  const now = audioCtx.currentTime;
+  // Hard thud
+  makeOsc('sawtooth', 120, now, now + 0.08, 0.5, 0.001);
+  makeNoise(0.15, 0.3);
+  makeOsc('square', 60, now, now + 0.3, 0.4, 0.001);
+  setNowPlaying('🧱 WALL HIT');
+}
+
+// ---- GAME START jingle ----
+function playStart() {
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime;
+  const melody = [523.25, 659.25, 783.99, 659.25, 1046.5];
+  melody.forEach((f, i) => {
+    makeOsc('square', f, now + i * 0.12, now + i * 0.12 + 0.15, 0.2, 0.001);
+    makeOsc('sine', f, now + i * 0.12, now + i * 0.12 + 0.2, 0.1, 0.001);
+  });
+  setNowPlaying('▶ GAME START');
+}
+
+// ---- PAUSE ----
+function playPause() {
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime;
+  makeOsc('sine', 440, now, now + 0.08, 0.2, 0.001);
+  makeOsc('sine', 330, now + 0.1, now + 0.18, 0.15, 0.001);
+  setNowPlaying(paused ? '⏸ PAUSED' : '▶ RESUMED');
+}
+
+// ---- UI ----
+function setNowPlaying(txt) {
+  const el = document.getElementById('nowPlaying');
+  el.textContent = `♩ ${txt}`;
+  el.classList.add('active');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => {
+    el.textContent = running && !gameOver ? '♩ PLAYING' : '♩ READY';
+    el.classList.remove('active');
+  }, 2000);
+}
+
+function toggleMute() {
+  unlockAudio();
+  muted = !muted;
+  const btn = document.getElementById('muteBtn');
+  const icon = document.getElementById('muteIcon');
+  const lbl = document.getElementById('muteLbl');
+  if (muted) {
+    masterGain.gain.value = 0;
+    btn.classList.add('muted');
+    icon.textContent = '🔇';
+    lbl.textContent = 'MUTED';
+    stopBgMusic();
+  } else {
+    masterGain.gain.value = masterVolume;
+    btn.classList.remove('muted');
+    icon.textContent = '🔊';
+    lbl.textContent = 'SOUND ON';
+    if (running && !gameOver && !paused) startBgMusic();
+  }
+}
+
+function setVolume(val) {
+  unlockAudio();
+  masterVolume = val / 100;
+  if (!muted) masterGain.gain.value = masterVolume;
+}
+
+canvas.addEventListener('click', unlockAudio);
+
+// Initial canvas draw
+
+// Initial setup
+loadLeaderboard();
+setInterval(loadLeaderboard, 15000);
+
+ctx.fillStyle = '#020c08';
+ctx.fillRect(0, 0, W, H);
+</script>
+</body>
+</html>

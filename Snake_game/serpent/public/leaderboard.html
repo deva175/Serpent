@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaderboard</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #111;
+      color: white;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: #222;
+    }
+
+    th, td {
+      border: 1px solid #444;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background: #333;
+    }
+
+    tr:nth-child(even) {
+      background: #1a1a1a;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🏆 Players Leaderboard</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rank</th>
+      <th>Player</th>
+      <th>Score</th>
+      <th>Level</th>
+      <th>Length</th>
+      <th>Speed</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+
+  <tbody id="scoresTable"></tbody>
+</table>
+
+<script>
+async function loadScores() {
+  const res = await fetch('/api/scores/all');
+  const data = await res.json();
+
+  const table = document.getElementById('scoresTable');
+
+  data.scores
+    .sort((a, b) => b.score - a.score)
+    .forEach((s, index) => {
+
+      const row = `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${s.player}</td>
+          <td>${s.score}</td>
+          <td>${s.level}</td>
+          <td>${s.length}</td>
+          <td>${s.speed}</td>
+          <td>${new Date(s.playedAt).toLocaleString()}</td>
+        </tr>
+      `;
+
+      table.innerHTML += row;
+    });
+}
+
+loadScores();
+</script>
+
+</body>
+</html>
